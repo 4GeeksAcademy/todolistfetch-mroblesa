@@ -1,92 +1,147 @@
 import React, { useEffect, useState } from "react";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCircleCheck } from  '@fortawesome/free-solid-svg-icons';
+import { faCircleCheck, faTrash } from  '@fortawesome/free-solid-svg-icons';
 
 
 //create your first component
 const Home = () => {
 	const [listValue , setListValue] = useState('');
 	const [toDoList , setToDoList] = useState([]);
-	const [user, setUser] = useState(' ');
-	const [todoList, setTodoList] = useState([]);
+	const [user] = useState('alejajaja');
 
 
 
 	//CREAR USUARIO
 	const createUser = async (user) => {
-		await fetch(`https://playground.4geeks.com/todo/users/${user}`, {
+
+		try {
+			await fetch(`https://playground.4geeks.com/todo/users/alejajaja`, {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
 			},
-
-		}).then((resp) => {
-			if (resp.ok) {
+			body: JSON.stringify({
+                    label: listValue,
+                    is_done: false
+                })
+		});
+		 if (resp.ok) {
 				alert('usuario creado correctamente')
 			}
-		}).then (resp => resp.json())
-			.catch((err) => alert(`error al crear el usuario ${JSON.stringify(err)}`));
+		} catch(err) {
+			console.log(`error al crear el usuario ${JSON.stringify(err)}`);}
+	}
+
+ 	
+ 	const fetchToDos = async () => {
+		try {
+			const response = await fetch(`https://playground.4geeks.com/todo/users/${user}`);
+			if (response.status === 404) {
+				await createUser();
+				return;
+			}
+			const data = await response.json();
+			setToDoList(data.todos || []);
+
+		} catch (err) {
+			console.log(err);
+		}
 	}
 
 
-
-
 	//FETCH PARA LEER EL USUARIO Y TAREA 
-	useEffect(() => {
-		fetch('https://playground.4geeks.com/todo/users/alejajaja', {
-			method: 'GET',
-			headers:{
-				'Content-Type': 'application/json'
-			}
-		})
-		.then(resp => {
-        console.log(resp.ok); // respuesta
-        console.log(resp.status); // El código de estado 201, 300, 400, etc.
-        return resp.json(); // pasa la info a json 
-    })
-    .then(data => {
-        // Aquí es donde debe comenzar tu código después de que finalice la búsqueda
-
-
-        console.log(data); // Esto imprimirá en la consola el objeto exacto recibido del servidor
-    })
-    .catch(error => {
-        console.log(error);
-    });
-		
-	}, []) 
-
+	 const addTodo = async () => {
+        if (!listValue.trim()) return;
+        try {
+            const response = await fetch(`https://playground.4geeks.com/todo/todos/${user}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    label: listValue,
+                    is_done: false
+                }),
+            });
+            if (response.ok) {
+                setListValue('');
+                await fetchToDos();
+            }
+        } catch (error) {
+            console.error('Error:', error);
+        }
+    };
 		//DELETE USER AND TASK 
+	 const deleteTodo = async (id) => {
+        try {
+            const response = await fetch(`https://playground.4geeks.com/todo/todos/${id}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            if (response.ok) await fetchToDos();
+        } catch (error) {
+            console.log('Error:', error);
+        }
+    };
 
+	const clearAll = async () => {
+		try {
+			const deleteResponse = await fetch(`https://playground.4geeks.com/todo/users/${user}`, {
+				method: 'DELETE',
+				headers: { 'Content-Type' : 'application/json'},
+			});
+			if(deleteResponse.ok) {
+				await createUser();
+				await fetchToDos();
+			} 
+			}
+			catch (err) {
+				console.error('Error:', err)
+			}
+		}
+	
+
+	useEffect(() => {
+		fetchToDos();
+	}, []);
 
 
 	return (
 		<div className="text-center principal">
 			<h1 className="text-center mt-5 title">-Your ToDo list-</h1>
-			<ul className="list-group col-4 text-center">
+			<div className="list-group col-4 text-center">
 			<input className="input list-group-item"
 				type="text"
 				onChange={(e)=> setListValue(e.target.value)}
 				value={listValue}
 				placeholder="Type your ToDo's"
-				onKeyUp={(e)=> {
-					if (e.key === "Enter") { setToDoList([ ...toDoList , listValue]);
-						setListValue("");
-					}}}
+				onKeyUp={(e)=> e.key === 'Enter' && addTodo()}
 				/>
-				{toDoList.map((list)=> 
-				<li className="list-group-item border border-info-subtle d-flex justify-content-between hover-item">{list}
-				<FontAwesomeIcon className='check' 
-				icon={faCircleCheck} style={{color: "#000000"}} 
-				onClick={()=> setToDoList(toDoList.filter(toDo => toDo != list))}
-				
-				/>
-				</li>)}
-				<li className="list-group-item border border-info-subtle task"><span>{toDoList.length} task</span></li>
-			</ul>
-			
-		</div>
-	);
-};
+
+				{
+				toDoList.map((todo) => (
+                    <div key={todo.id} className="list-group-item border d-flex justify-content-between align-items-center">
+                        {todo.label}
+                        <FontAwesomeIcon
+                            icon={faCircleCheck}
+                            className="text-success cursor-pointer"
+                            onClick={() => deleteTodo(todo.id)}
+                        />
+                    </div>
+                ))
+				}
+                
+                <div className="list-group-item border d-flex justify-content-between align-items-center">
+                    <span>{toDoList.length} task{toDoList.length !== 1 && 's'}</span>
+                    <button 
+                        className="btn btn-danger btn-sm"
+                        onClick={clearAll}
+                    >
+                        <FontAwesomeIcon icon={faTrash} /> Clear All
+                    </button>
+				</div>
+			</div>
+			</div>
+	)
+		}
+
 
 export default Home;
